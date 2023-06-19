@@ -158,6 +158,7 @@ router.get('/:address', async (req, res) => {
 		res.status(500).json({ success: false, result: { error: 'Errored while retrieving pair details' } });
 	}
 
+	const token_address = tokenAddress;
 	const price = dextoolsData?.price;
 	const market_cap = token_total_supply_bigint ? Number(ethers.formatUnits(token_total_supply_bigint, token_decimals_bigint)) * price : null;
 	const pooled_eth = Number(ethers.formatEther(pooled_eth_bigint));
@@ -174,6 +175,7 @@ router.get('/:address', async (req, res) => {
 	if (owner && owner === ethers.ZeroAddress) renounced = true;
 
 	const result = {
+		token_address,
 		token_name,
 		token_symbol,
 		token_decimals,
