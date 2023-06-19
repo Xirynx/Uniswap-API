@@ -216,12 +216,13 @@ router.get('/:address', async (req, res) => {
 		'function name() view returns (string)',
 		'function symbol() view returns (string)',
 		'function decimals() view returns (uint)',
+		'function totalSupply() view returns (uint)',
 		'function owner() view returns (address)',
 	]);
 
 	const erc20Contract = new ethers.Contract(tokenAddress, erc20Interface, provider);
 
-	let honeypotisData, dextoolsData, sourceCode, locks, token_name, token_symbol, token_decimals_bigint, owner;
+	let honeypotisData, dextoolsData, sourceCode, locks, token_name, token_symbol, token_decimals_bigint, token_total_supply_bigint, owner;
 	try {
 		[
 			honeypotisData,
@@ -231,6 +232,7 @@ router.get('/:address', async (req, res) => {
 			token_name,
 			token_symbol,
 			token_decimals_bigint,
+			token_total_supply_bigint,
 			owner,
 		] = await Promise.all([
 			honeypotis(tokenAddress, await pairContract.getAddress()),
@@ -240,6 +242,7 @@ router.get('/:address', async (req, res) => {
 			erc20Contract.name().catch(() => '<Unnamed Token>'),
 			erc20Contract.symbol().catch(() => 'ERC20'),
 			erc20Contract.decimals().catch(() => 18),
+			erc20Contract.totalSupply().catch(() => null),
 			erc20Contract.owner().catch(() => null),
 		]);
 	}
@@ -248,12 +251,14 @@ router.get('/:address', async (req, res) => {
 	}
 
 	const price = dextoolsData?.price;
+	const market_cap = token_total_supply_bigint ? Number(ethers.formatUnits(token_total_supply_bigint, token_decimals_bigint)) * price : null;
 	const pooled_eth = address0.toLowerCase() === WETH_ADDRESS.toLowerCase() ? Number(ethers.formatEther(reserves[0])) : Number(ethers.formatEther(reserves[1]));
 	const initial_liquidity = dextoolsData?.metrics?.initialLiquidity ?? 0;
 	const current_liquidity = dextoolsData?.metrics?.liquidity ?? 0;
 	const buy_tax = honeypotisData?.BuyTax ?? null;
 	const sell_tax = honeypotisData?.SellTax ?? null;
 	const is_honeypot = honeypotisData?.IsHoneypot ?? null;
+	const verified = sourceCode ? true : false;
 	const links = Array.from(new Set([...findLinksFromSourceCode(sourceCode), ...(dextoolsData?.links ?? [])]));
 	const token_decimals = Number(token_decimals_bigint);
 
@@ -265,6 +270,7 @@ router.get('/:address', async (req, res) => {
 		token_symbol,
 		token_decimals,
 		price,
+		market_cap,
 		pooled_eth,
 		initial_liquidity,
 		current_liquidity,
@@ -272,6 +278,7 @@ router.get('/:address', async (req, res) => {
 		sell_tax,
 		owner,
 		is_honeypot,
+		verified,
 		renounced,
 		links,
 		locks,
