@@ -250,6 +250,8 @@ router.get('/:address', async (req, res) => {
 		res.status(500).json({ success: false, result: { error: 'Errored while retrieving pair details' } });
 	}
 
+	const pool_type = 'uniswap-v2';
+	const pool_address = address;
 	const token_address = tokenAddress;
 	const price = dextoolsData?.price;
 	const market_cap = token_total_supply_bigint ? Number(ethers.formatUnits(token_total_supply_bigint, token_decimals_bigint)) * price : null;
@@ -267,6 +269,8 @@ router.get('/:address', async (req, res) => {
 	if (owner && owner === ethers.ZeroAddress) renounced = true;
 
 	const result = {
+		pool_type,
+		pool_address,
 		token_address,
 		token_name,
 		token_symbol,
