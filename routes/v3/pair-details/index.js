@@ -119,7 +119,7 @@ router.get('/:address', async (req, res) => {
 		return;
 	}
 
-	const [address0, address1, pooled_eth_bigint, pool_fee] = pairDetails;
+	const [address0, address1, pooled_eth_bigint, pool_fee_bigint] = pairDetails;
 
 	if (address0.toLowerCase() !== WETH_ADDRESS.toLowerCase() && address1.toLowerCase() !== WETH_ADDRESS.toLowerCase()) {
 		res.status(200).json({ success: false, result: { error: 'At least one token in pair must be wrapped ether' } });
@@ -160,14 +160,15 @@ router.get('/:address', async (req, res) => {
 
 	const pool_type = 'uniswap-v3';
 	const pool_address = address;
+	const pool_fee = Number(pool_fee_bigint);
 	const token_address = tokenAddress;
 	const price = dextoolsData?.price;
 	const market_cap = token_total_supply_bigint ? Number(ethers.formatUnits(token_total_supply_bigint, token_decimals_bigint)) * price : null;
 	const pooled_eth = Number(ethers.formatEther(pooled_eth_bigint));
 	const initial_liquidity = dextoolsData?.metrics?.initialLiquidity ?? 0;
 	const current_liquidity = dextoolsData?.metrics?.liquidity ?? 0;
-	const buy_tax = (honeypotisData?.simulationResult?.buyTax ?? 0) + (Number(pool_fee) / 10_000);
-	const sell_tax = (honeypotisData?.simulationResult?.sellTax ?? 0) + (Number(pool_fee) / 10_000);
+	const buy_tax = (honeypotisData?.simulationResult?.buyTax ?? 0) + (pool_fee / 10_000);
+	const sell_tax = (honeypotisData?.simulationResult?.sellTax ?? 0) + (pool_fee / 10_000);
 	const is_honeypot = honeypotisData?.honeypotResult?.isHoneypot ?? null;
 	const verified = sourceCode ? true : false;
 	const links = Array.from(new Set([...findLinksFromSourceCode(sourceCode), ...(dextoolsData?.links ?? [])]));
@@ -179,6 +180,7 @@ router.get('/:address', async (req, res) => {
 	const result = {
 		pool_type,
 		pool_address,
+		pool_fee,
 		token_address,
 		token_name,
 		token_symbol,
