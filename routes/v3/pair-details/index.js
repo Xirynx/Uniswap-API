@@ -55,6 +55,7 @@ const dextools = async (pairAddress) => {
 };
 
 const findLinksFromSourceCode = (code) => {
+	if (!code) return [];
 	code = code.replaceAll('\\n', ' ');
 	const matches = code.match(/https?:\/\/[^\s]+/g);
 	if (matches == null) return [];
