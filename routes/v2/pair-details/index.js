@@ -259,8 +259,13 @@ router.get('/:address', async (req, res) => {
 	const pooled_eth = address0.toLowerCase() === WETH_ADDRESS.toLowerCase() ? Number(ethers.formatEther(reserves[0])) : Number(ethers.formatEther(reserves[1]));
 	const initial_liquidity = dextoolsData?.metrics?.initialLiquidity ?? 0;
 	const current_liquidity = dextoolsData?.metrics?.liquidity ?? 0;
+	const token_holders = dextoolsData?.token?.metrics?.holders ?? null;
 	const buy_tax = honeypotisData?.BuyTax ?? null;
 	const sell_tax = honeypotisData?.SellTax ?? null;
+	const buy_gas = honeypotisData?.BuyGas ?? null;
+	const sell_gas = honeypotisData?.SellGas ?? null;
+	const max_buy = honeypotisData?.MaxBuy ?? null;
+	const max_sell = honeypotisData?.MaxSell ?? null;
 	const is_honeypot = honeypotisData?.IsHoneypot ?? null;
 	const verified = sourceCode ? true : false;
 	const links = Array.from(new Set([...findLinksFromSourceCode(sourceCode), ...(dextoolsData?.links ?? [])]));
@@ -281,8 +286,13 @@ router.get('/:address', async (req, res) => {
 		pooled_eth,
 		initial_liquidity,
 		current_liquidity,
+		token_holders,
 		buy_tax,
 		sell_tax,
+		buy_gas,
+		sell_gas,
+		max_buy,
+		max_sell,
 		owner,
 		is_honeypot,
 		verified,

@@ -133,12 +133,13 @@ router.get('/:address', async (req, res) => {
 
 	const erc20Contract = new ethers.Contract(tokenAddress, erc20Interface, provider);
 
-	let honeypotisData, dextoolsData, sourceCode, token_name, token_symbol, token_decimals_bigint, token_total_supply_bigint, owner;
+	let honeypotisData, dextoolsData, sourceCode, locks, token_name, token_symbol, token_decimals_bigint, token_total_supply_bigint, owner;
 	try {
 		[
 			honeypotisData,
 			dextoolsData,
 			sourceCode,
+			locks,
 			token_name,
 			token_symbol,
 			token_decimals_bigint,
@@ -148,6 +149,7 @@ router.get('/:address', async (req, res) => {
 			honeypotis(tokenAddress, await pairContract.getAddress()),
 			dextools(await pairContract.getAddress()),
 			getSourceCode(tokenAddress),
+			null,
 			erc20Contract.name().catch(() => '<Unnamed Token>'),
 			erc20Contract.symbol().catch(() => 'ERC20'),
 			erc20Contract.decimals().catch(() => 18),
@@ -168,8 +170,13 @@ router.get('/:address', async (req, res) => {
 	const pooled_eth = Number(ethers.formatEther(pooled_eth_bigint));
 	const initial_liquidity = dextoolsData?.metrics?.initialLiquidity ?? 0;
 	const current_liquidity = dextoolsData?.metrics?.liquidity ?? 0;
+	const token_holders = dextoolsData?.token?.metrics?.holders ?? null;
 	const buy_tax = (honeypotisData?.simulationResult?.buyTax ?? 0) + (pool_fee / 10_000);
 	const sell_tax = (honeypotisData?.simulationResult?.sellTax ?? 0) + (pool_fee / 10_000);
+	const buy_gas = honeypotisData?.simulationResult?.buyGas ?? null;
+	const sell_gas = honeypotisData?.simulationResult?.sellGas ?? null;
+	const max_buy = null;
+	const max_sell = null;
 	const is_honeypot = honeypotisData?.honeypotResult?.isHoneypot ?? null;
 	const verified = sourceCode ? true : false;
 	const links = Array.from(new Set([...findLinksFromSourceCode(sourceCode), ...(dextoolsData?.links ?? [])]));
@@ -181,7 +188,6 @@ router.get('/:address', async (req, res) => {
 	const result = {
 		pool_type,
 		pool_address,
-		pool_fee,
 		token_address,
 		token_name,
 		token_symbol,
@@ -191,14 +197,19 @@ router.get('/:address', async (req, res) => {
 		pooled_eth,
 		initial_liquidity,
 		current_liquidity,
+		token_holders,
 		buy_tax,
 		sell_tax,
+		buy_gas,
+		sell_gas,
+		max_buy,
+		max_sell,
 		owner,
 		is_honeypot,
 		verified,
 		renounced,
 		links,
-		locks: [],
+		locks,
 	};
 
 	res.status(200).send({ success: true, result });
