@@ -316,8 +316,10 @@ router.get('/:address', async (req, res) => {
 	const sell_tax = honeypotisData?.SellTax ?? null;
 	const buy_gas = honeypotisData?.BuyGas ?? null;
 	const sell_gas = honeypotisData?.SellGas ?? null;
-	const max_buy = honeypotisData?.MaxBuy ?? null;
-	const max_sell = honeypotisData?.MaxSell ?? null;
+	const max_buy = honeypotisData?.MaxBuy?.WithToken ?? null;
+	const max_sell = honeypotisData?.MaxSell?.WithToken ?? null;
+	const max_buy_eth = typeof max_buy !== 'string' ? null : Number(max_buy);
+	const max_sell_eth = typeof max_sell !== 'string' ? null : Number(max_sell);
 	const is_honeypot = honeypotisData?.IsHoneypot ?? null;
 	const verified = sourceCode ? true : false;
 	const links = Array.from(new Set([...findLinksFromSourceCode(sourceCode), ...(dextoolsData?.links ?? [])]));
@@ -347,8 +349,8 @@ router.get('/:address', async (req, res) => {
 		sell_tax,
 		buy_gas,
 		sell_gas,
-		max_buy,
-		max_sell,
+		max_buy_eth,
+		max_sell_eth,
 		owner,
 		is_honeypot,
 		verified,
