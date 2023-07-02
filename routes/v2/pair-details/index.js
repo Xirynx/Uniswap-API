@@ -7,7 +7,6 @@ const UniswapV2PairABI = require('../../../lib/abi/UniswapV2Pair.json');
 const router = express.Router();
 
 const WETH_ADDRESS = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2';
-const UNISWAP_V2_ROUTER_ADDRESS = '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D';
 
 const getSourceCode = async (address) => {
 	try {
@@ -25,8 +24,8 @@ const getSourceCode = async (address) => {
 	}
 };
 
-const honeypotis = async (tokenAddress, pairAddress) => {
-	const res = await fetch(`https://api.honeypot.is/v1/IsHoneypot?chainID=1&router=${UNISWAP_V2_ROUTER_ADDRESS}&address=${tokenAddress}&pair=${pairAddress}`);
+const honeypotis = async (pairAddress) => {
+	const res = await fetch(`https://api.honeypot.is/v2/IsHoneypot?address=${pairAddress}&chainID=1`);
 	return await res.json();
 };
 
@@ -312,15 +311,13 @@ router.get('/:address', async (req, res) => {
 	const pool_growth = initial_liquidity ? Number((current_liquidity / initial_liquidity - 1).toFixed(2)) : null;
 	const token_holders = dextoolsData?.holders ?? null;
 	const { buys: buys_24h, sells: sells_24h } = countSwapsfromLogs(swapLogs, address0);
-	const buy_tax = honeypotisData?.BuyTax ?? null;
-	const sell_tax = honeypotisData?.SellTax ?? null;
-	const buy_gas = honeypotisData?.BuyGas ?? null;
-	const sell_gas = honeypotisData?.SellGas ?? null;
-	const max_buy = honeypotisData?.MaxBuy?.WithToken ?? null;
-	const max_sell = honeypotisData?.MaxSell?.WithToken ?? null;
-	const max_buy_eth = typeof max_buy !== 'string' ? null : Number(max_buy);
-	const max_sell_eth = typeof max_sell !== 'string' ? null : Number(max_sell);
-	const is_honeypot = honeypotisData?.IsHoneypot ?? null;
+	const buy_tax = honeypotisData?.simulationResult?.buyTax ?? null;
+	const sell_tax = honeypotisData?.simulationResult?.sellTax ?? null;
+	const buy_gas = honeypotisData?.simulationResult?.buyGas ?? null;
+	const sell_gas = honeypotisData?.simulationResult?.sellGas ?? null;
+	const max_buy = honeypotisData?.simulationResult?.maxBuy?.withToken ?? null;
+	const max_sell = honeypotisData?.simulationResult?.maxSell?.withToken ?? null;
+	const is_honeypot = honeypotisData?.honeypotResult?.isHoneypot ?? null;
 	const verified = sourceCode ? true : false;
 	const links = Array.from(new Set([...findLinksFromSourceCode(sourceCode), ...(dextoolsData?.links ?? [])]));
 	const token_decimals = Number(token_decimals_bigint);
@@ -349,8 +346,8 @@ router.get('/:address', async (req, res) => {
 		sell_tax,
 		buy_gas,
 		sell_gas,
-		max_buy_eth,
-		max_sell_eth,
+		max_buy,
+		max_sell,
 		owner,
 		is_honeypot,
 		verified,

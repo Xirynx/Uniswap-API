@@ -227,8 +227,8 @@ router.get('/:address', async (req, res) => {
 	const sell_tax = (honeypotisData?.simulationResult?.sellTax ?? 0) + (pool_fee / 10_000);
 	const buy_gas = honeypotisData?.simulationResult?.buyGas ?? null;
 	const sell_gas = honeypotisData?.simulationResult?.sellGas ?? null;
-	const max_buy_eth = null;
-	const max_sell_eth = null;
+	const max_buy = honeypotisData?.simulationResult?.maxBuy?.withToken ?? null;
+	const max_sell = honeypotisData?.simulationResult?.maxSell?.withToken ?? null;
 	const is_honeypot = honeypotisData?.honeypotResult?.isHoneypot ?? null;
 	const verified = sourceCode ? true : false;
 	const links = Array.from(new Set([...findLinksFromSourceCode(sourceCode), ...(dextoolsData?.links ?? [])]));
@@ -258,8 +258,8 @@ router.get('/:address', async (req, res) => {
 		sell_tax,
 		buy_gas,
 		sell_gas,
-		max_buy_eth,
-		max_sell_eth,
+		max_buy,
+		max_sell,
 		owner,
 		is_honeypot,
 		verified,
