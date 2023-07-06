@@ -149,7 +149,7 @@ router.get('/:address', async (req, res) => {
 		'function balanceOf(address) view returns (uint)',
 	]);
 
-	const provider = new ethers.JsonRpcProvider('http://hypernode.justcubes.io:8545');
+	const provider = new ethers.AlchemyProvider(1, process.env.ALCHEMY_API_KEY);
 	const pairContract = new ethers.Contract(address, UniswapV3PairABI, provider);
 	const wethContract = new ethers.Contract(WETH_ADDRESS, erc20Interface, provider);
 

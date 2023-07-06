@@ -25,7 +25,7 @@ const buyQuoteV2 = async (tokenAddress, inputAmount, slippageBips) => {
 		'function getReserves() view returns (uint reserves0, uint reserves1, uint timestamp)',
 	]);
 
-	const provider = new ethers.JsonRpcProvider('http://hypernode.justcubes.io:8545');
+	const provider = new ethers.AlchemyProvider(1, process.env.ALCHEMY_API_KEY);
 	const tokenContract = new ethers.Contract(tokenAddress, erc20Interface, provider);
 
 	const [tokenDecimals, tokenName, tokenSymbol] = await Promise.all([
@@ -85,7 +85,7 @@ const sellQuoteV2 = async (tokenAddress, inputAmount, slippageBips) => {
 		'function getReserves() view returns (uint reserves0, uint reserves1, uint timestamp)',
 	]);
 
-	const provider = new ethers.JsonRpcProvider('http://hypernode.justcubes.io:8545');
+	const provider = new ethers.AlchemyProvider(1, process.env.ALCHEMY_API_KEY);
 	const tokenContract = new ethers.Contract(tokenAddress, erc20Interface, provider);
 
 	const [tokenDecimals, tokenName, tokenSymbol] = await Promise.all([

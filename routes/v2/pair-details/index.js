@@ -63,8 +63,7 @@ const dextools = async (pairAddress) => {
 const getLiquidityLocks = async (pairAddress) => {
 	const UNICRYPT_ADDRESS = '0x663A5C229c09b049E36dCc11a9B0d4a8Eb9db214';
 	const TEAM_FINANCE_ADDRESS = '0xE2fE530C047f2d85298b07D9333C05737f1435fB';
-	const infuraProvider = new ethers.InfuraProvider(1, process.env.INFURA_API_KEY);
-	const defaultProvider = new ethers.JsonRpcProvider('http://hypernode.justcubes.io:8545');
+	const provider = new ethers.AlchemyProvider(1, process.env.ALCHEMY_API_KEY);
 	const unicryptInterface = new ethers.Interface([
 		'function getNumLocksForToken(address) view returns (uint)',
 		'function tokenLocks(address, uint) view returns (uint256 lockDate, uint256 amount, uint256 initialAmount, uint256 unlockDate, uint256 lockID, address owner)',
@@ -73,15 +72,15 @@ const getLiquidityLocks = async (pairAddress) => {
 		'event Deposit(uint256 id, address indexed tokenAddress, address indexed withdrawalAddress, uint256 amount, uint256 unlockTime)',
 		'function lockedToken(uint) view returns (address tokenAddress, address withdrawalAddress, uint256 tokenAmount, uint256 unlockTime, bool withdrawn)',
 	]);
-	const TeamFinance = new ethers.Contract(TEAM_FINANCE_ADDRESS, teamFinanceInterface, infuraProvider);
-	const Unicrypt = new ethers.Contract(UNICRYPT_ADDRESS, unicryptInterface, defaultProvider);
-	const Pair = new ethers.Contract(pairAddress, UniswapV2PairABI, defaultProvider);
+	const TeamFinance = new ethers.Contract(TEAM_FINANCE_ADDRESS, teamFinanceInterface, provider);
+	const Unicrypt = new ethers.Contract(UNICRYPT_ADDRESS, unicryptInterface, provider);
+	const Pair = new ethers.Contract(pairAddress, UniswapV2PairABI, provider);
 
 	let totalLPSupply, numUnicryptLocks, teamFinanceLockLogs, currentBlock, amountLPBurned;
 	try {
 		const teamFinanceLogFilter = TeamFinance.filters.Deposit(null, pairAddress);
 		[currentBlock, totalLPSupply, amountLPBurned, numUnicryptLocks, teamFinanceLockLogs] = await Promise.all([
-			defaultProvider.getBlock(),
+			provider.getBlock(),
 			Pair.totalSupply(),
 			Pair.balanceOf('0x000000000000000000000000000000000000dEaD'),
 			Unicrypt.getNumLocksForToken(pairAddress),
@@ -233,7 +232,7 @@ router.get('/:address', async (req, res) => {
 		return;
 	}
 
-	const provider = new ethers.JsonRpcProvider('http://hypernode.justcubes.io:8545');
+	const provider = new ethers.AlchemyProvider(1, process.env.ALCHEMY_API_KEY);
 	const pairContract = new ethers.Contract(address, UniswapV2PairABI, provider);
 
 	let pairDetails;
@@ -246,6 +245,7 @@ router.get('/:address', async (req, res) => {
 		]);
 	}
 	catch (err) {
+		console.log(err);
 		res.status(200).json({ success: false, result: { error: 'Address does not correspond to existing pair on Uniswap V2' } });
 		return;
 	}

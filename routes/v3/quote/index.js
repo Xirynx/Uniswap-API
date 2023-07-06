@@ -29,7 +29,7 @@ const buyQuoteV3 = async (tokenAddress, feeAmount, inputAmount, slippage_bips) =
 	if (![FeeAmount.HIGH, FeeAmount.LOW, FeeAmount.LOWEST, FeeAmount.MEDIUM].includes(feeAmount)) return null;
 	if (slippage_bips < 0 || slippage_bips > 10_000) return null;
 
-	const provider = new ethers.JsonRpcProvider('http://hypernode.justcubes.io:8545');
+	const provider = new ethers.AlchemyProvider(1, process.env.ALCHEMY_API_KEY);
 	const tokenContract = new ethers.Contract(tokenAddress, erc20Interface, provider);
 
 	const tokenDecimals = await tokenContract.decimals().catch(() => 18);
@@ -62,7 +62,7 @@ const sellQuoteV3 = async (tokenAddress, feeAmount, inputAmount, slippageBips) =
 	if (![FeeAmount.HIGH, FeeAmount.LOW, FeeAmount.LOWEST, FeeAmount.MEDIUM].includes(feeAmount)) return null;
 	if (slippageBips < 0 || slippageBips > 10_000) return null;
 
-	const provider = new ethers.JsonRpcProvider('http://hypernode.justcubes.io:8545');
+	const provider = new ethers.AlchemyProvider(1, process.env.ALCHEMY_API_KEY);
 	const tokenContract = new ethers.Contract(tokenAddress, erc20Interface, provider);
 
 	const tokenDecimals = await tokenContract.decimals().catch(() => 18);

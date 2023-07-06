@@ -14,7 +14,7 @@ router.get('/:address', async (req, res) => {
 		return;
 	}
 
-	const provider = new ethers.JsonRpcProvider('http://hypernode.justcubes.io:8545');
+	const provider = new ethers.AlchemyProvider(1, process.env.ALCHEMY_API_KEY);
 	const erc20Interface = new ethers.Interface([
 		'function balanceOf(address) view returns (uint256)',
 		'function decimals() view returns (uint8)',
