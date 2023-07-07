@@ -89,25 +89,31 @@ const findLinksFromSourceCode = (code) => {
 	return filteredMatches;
 };
 
-const getSwapLogs24h = async (pairAddress, fromBlock, toBlock) => {
+async function getSwapLogs(pairAddress, fromBlock, toBlock) {
+	if (fromBlock > toBlock) return [];
 	const provider = new ethers.AlchemyProvider(1, process.env.ALCHEMY_API_KEY);
 	const interface = new ethers.Interface([
 		'event Swap(address indexed sender,address indexed recipient,int256 amount0,int256 amount1,uint160 sqrtPriceX96,uint128 liquidity,int24 tick)',
 	]);
 	const contract = new ethers.Contract(pairAddress, interface, provider);
-	toBlock = toBlock ?? await provider.getBlockNumber();
-	fromBlock = fromBlock ?? toBlock - 7200;
-	if (fromBlock >= toBlock) return [];
 	try {
 		return await contract.queryFilter('Swap', fromBlock, toBlock);
 	}
 	catch (err) {
-		const midBlock = (fromBlock + toBlock) >> 1;
-		const arr1 = await getSwapLogs24h(pairAddress, fromBlock, midBlock);
-		const arr2 = await getSwapLogs24h(pairAddress, midBlock + 1, toBlock);
-		return [...arr1, ...arr2];
+		console.log(err);
+		if (err.error.code === -32602) {
+			const midBlock = (fromBlock + toBlock) >> 1;
+			const [logsLeft, logsRight] = await Promise.all([
+				getSwapLogs(pairAddress, fromBlock, midBlock),
+				getSwapLogs(pairAddress, midBlock + 1, toBlock),
+			]);
+			return [...logsLeft, ...logsRight];
+		}
+		else {
+			return [];
+		}
 	}
-};
+}
 
 const countSwapsfromLogs = (swapLogs, token0) => {
 	let buys = 0;
@@ -158,7 +164,7 @@ router.get('/:address', async (req, res) => {
 			pairContract.token1(),
 			wethContract.balanceOf(await pairContract.getAddress()),
 			pairContract.fee(),
-			count_trades === 'true' ? getSwapLogs24h(await pairContract.getAddress()) : [],
+			provider.getBlockNumber(),
 		]);
 	}
 	catch (err) {
@@ -167,7 +173,7 @@ router.get('/:address', async (req, res) => {
 		return;
 	}
 
-	const [address0, address1, pooled_eth_bigint, pool_fee_bigint, swapLogs] = pairDetails;
+	const [address0, address1, pooled_eth_bigint, pool_fee_bigint, blockNumber] = pairDetails;
 
 	if (address0.toLowerCase() !== WETH_ADDRESS.toLowerCase() && address1.toLowerCase() !== WETH_ADDRESS.toLowerCase()) {
 		res.status(200).json({ success: false, result: { error: 'At least one token in pair must be wrapped ether' } });
@@ -180,13 +186,14 @@ router.get('/:address', async (req, res) => {
 
 	const erc20Contract = new ethers.Contract(tokenAddress, erc20Interface, provider);
 
-	let honeypotisData, dextoolsData, sourceCode, locks, token_name, token_symbol, token_decimals_bigint, token_total_supply_bigint, owner;
+	let honeypotisData, dextoolsData, sourceCode, locks, swapLogs, token_name, token_symbol, token_decimals_bigint, token_total_supply_bigint, owner;
 	try {
 		[
 			honeypotisData,
 			dextoolsData,
 			sourceCode,
 			locks,
+			swapLogs,
 			token_name,
 			token_symbol,
 			token_decimals_bigint,
@@ -197,6 +204,7 @@ router.get('/:address', async (req, res) => {
 			dextools(await pairContract.getAddress()),
 			getSourceCode(tokenAddress),
 			null,
+			count_trades === 'true' ? getSwapLogs(await pairContract.getAddress(), blockNumber - 7200, blockNumber) : [],
 			erc20Contract.name().catch(() => '<Unnamed Token>'),
 			erc20Contract.symbol().catch(() => 'ERC20'),
 			erc20Contract.decimals().catch(() => 18),
