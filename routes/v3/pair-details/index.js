@@ -90,7 +90,7 @@ const findLinksFromSourceCode = (code) => {
 };
 
 const getSwapLogs24h = async (pairAddress, fromBlock, toBlock) => {
-	const provider = new ethers.InfuraProvider(1, process.env.INFURA_API_KEY);
+	const provider = new ethers.AlchemyProvider(1, process.env.ALCHEMY_API_KEY);
 	const interface = new ethers.Interface([
 		'event Swap(address indexed sender,address indexed recipient,int256 amount0,int256 amount1,uint160 sqrtPriceX96,uint128 liquidity,int24 tick)',
 	]);
@@ -101,11 +101,8 @@ const getSwapLogs24h = async (pairAddress, fromBlock, toBlock) => {
 	try {
 		return await contract.queryFilter('Swap', fromBlock, toBlock);
 	}
-	catch (error) {
-		console.log(error);
+	catch (err) {
 		const midBlock = (fromBlock + toBlock) >> 1;
-		console.log(fromBlock);
-		console.log(toBlock);
 		const arr1 = await getSwapLogs24h(pairAddress, fromBlock, midBlock);
 		const arr2 = await getSwapLogs24h(pairAddress, midBlock + 1, toBlock);
 		return [...arr1, ...arr2];
@@ -134,6 +131,7 @@ const countSwapsfromLogs = (swapLogs, token0) => {
 router.get('/:address', async (req, res) => {
 	const ethereumAddressRegex = /^(0x)?[0-9a-fA-F]{40}$/;
 	const { address } = req.params;
+	const { count_trades } = req.query;
 
 	if (!ethereumAddressRegex.test(address)) {
 		res.status(200).json({ success: false, result: { error: 'Invalid Ethereum address provided' } });
@@ -160,7 +158,7 @@ router.get('/:address', async (req, res) => {
 			pairContract.token1(),
 			wethContract.balanceOf(await pairContract.getAddress()),
 			pairContract.fee(),
-			getSwapLogs24h(await pairContract.getAddress()),
+			count_trades === 'true' ? getSwapLogs24h(await pairContract.getAddress()) : [],
 		]);
 	}
 	catch (err) {
