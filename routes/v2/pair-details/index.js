@@ -24,40 +24,216 @@ const getSourceCode = async (address) => {
 	}
 };
 
+const getTokenData = async (address) => {
+	try {
+		const qeuryString = `query($address: String!) {
+			getTokenInfo(address: $address, networkId: 1) {
+				circulatingSupply
+				isScam
+				links {
+					discord
+					email
+					facebook
+					github
+					instagram
+					linkedin
+					reddit
+					slack
+					telegram
+					twitch
+					twitter
+					website
+					wechat
+					whitepaper
+					youtube
+				}
+			}
+		}`;
+
+		const res = await fetch('https://api.defined.fi', {
+			body: JSON.stringify({
+				query: qeuryString,
+				variables: {
+					address: address,
+				},
+			}),
+			headers: {
+				'Content-Type': 'application/json',
+				'X-Api-Key': process.env.DEFINED_API_KEY,
+			},
+			method: 'POST',
+		});
+
+		const { data: { getTokenInfo } } = await res.json();
+		const links = Object.values(getTokenInfo.links ?? {}).filter(link => link);
+		const isScam = getTokenInfo.isScam === true;
+		const circulatingSupply = Number(getTokenInfo.circulatingSupply);
+
+		return {
+			links,
+			isScam,
+			circulatingSupply,
+		};
+	}
+	catch (err) {
+		console.error(err);
+		return {
+			links: [],
+			isScam: null,
+			circulatingSupply: null,
+		};
+	}
+};
+
+const getTokenPrice = async (address) => {
+	try {
+		const qeuryString = `query($address: String!) {
+			getTokenPrices(
+				inputs: [
+					{ address: $address, networkId: 1 }
+				]
+			) {
+				priceUsd
+			}
+		}`;
+
+		const res = await fetch('https://api.defined.fi', {
+			body: JSON.stringify({
+				query: qeuryString,
+				variables: {
+					address: address,
+				},
+			}),
+			headers: {
+				'Content-Type': 'application/json',
+				'X-Api-Key': process.env.DEFINED_API_KEY,
+			},
+			method: 'POST',
+		});
+
+		const { data: { getTokenPrices: [ { priceUsd } ] } } = await res.json();
+		return Number(priceUsd);
+	}
+	catch {
+		return null;
+	}
+};
+
+const getFirstSync = async (pairAddress, fromBlock = 0, toBlock = 'latest') => {
+	try {
+		const provider = new ethers.AlchemyProvider(1, process.env.ALCHEMY_API_KEY);
+		const logs = await provider.getLogs({
+			address: pairAddress,
+			topics: ['0x1c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1'],
+			fromBlock: fromBlock,
+			toBlock: toBlock,
+		});
+		// Sort the logs array by block number in ascending order
+		logs.sort((a, b) => a.blockNumber - b.blockNumber);
+		const firstLog = logs[0];
+		const [reserve0, reserve1] = new ethers.Interface(['event Sync(uint112 reserve0, uint112 reserve1)']).parseLog(firstLog).args;
+		return { reserve0, reserve1 };
+	}
+	catch (err) {
+		const message = err?.error?.message;
+		if (!message) return null;
+		// Check if message contains block range, then extract the two values
+		const blockRangeRegex = /\[([^\s,]+),\s+([^\s\]]+)\]/;
+		const matches = message.match(blockRangeRegex);
+		if (!matches) return null;
+		const fromBlockValue = matches[1];
+		const toBlockValue = matches[2];
+		const res = await getFirstSync(pairAddress, fromBlockValue, toBlockValue);
+		return res;
+	}
+};
+
+// const getLiquidity = async (pairAddress) => {
+// 	const provider = new ethers.AlchemyProvider(1, process.env.ALCHEMY_API_KEY);
+// 	const erc20Interface = new ethers.Interface([
+// 		'function balanceOf(address) view returns (uint256)',
+// 	]);
+// 	const contract = new ethers.Contract(WETH_ADDRESS, erc20Interface, provider);
+// 	const liquidity = Number(ethers.formatEther(await contract.balanceOf(pairAddress)));
+// 	if (typeof liquidity === 'number' && !isNaN(liquidity)) return liquidity;
+// 	else return null;
+// };
+
+const getEtherPrice = async () => {
+	const provider = new ethers.AlchemyProvider(1, process.env.ALCHEMY_API_KEY);
+	const interface = new ethers.Interface([
+		'function decimals() external view returns (uint8)',
+		'function latestRoundData() external view returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)',
+	]);
+	try {
+		const CHAINLINK_ORACLE = '0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419';
+		const contract = new ethers.Contract(CHAINLINK_ORACLE, interface, provider);
+		const [decimals, latestRoundData] = await Promise.all([
+			contract.decimals(),
+			contract.latestRoundData(),
+		]);
+		const latestAnswer = latestRoundData.answer;
+		const price = Number(ethers.formatUnits(latestAnswer, decimals));
+		if (typeof price === 'number' && !isNaN(price)) return price;
+		return null;
+	}
+	catch {
+		return null;
+	}
+};
+
 const honeypotis = async (pairAddress) => {
 	const res = await fetch(`https://api.honeypot.is/v2/IsHoneypot?address=${pairAddress}&chainID=1`);
 	return await res.json();
 };
 
-const dextools = async (pairAddress) => {
-	const res = await fetch(`https://www.dextools.io/shared/data/pair?address=${pairAddress.toLowerCase()}&chain=ether`);
-	const json = await res.json();
-	if (json.data) {
-		const price = json.data?.[0].price ?? null;
-		const metrics = json.data?.[0].metrics ?? null;
-		const holders = json.data?.[0]?.token?.metrics?.holders ?? null;
-		let links = json.data?.[0].token.links ?? null;
-		if (links) {
-			links = Object.values(links).filter(link => link !== '');
-		}
-		else {
-			links = [];
-		}
-		return {
-			price,
-			metrics,
-			holders,
-			links,
-		};
-	}
-	else {
-		return {
-			price: null,
-			metrics: null,
-			holders: null,
-			links: [],
-		};
-	}
+// const dextools = async (pairAddress) => {
+// 	const res = await fetch(`https://www.dextools.io/shared/data/pair?address=${pairAddress.toLowerCase()}&chain=ether`);
+// 	const json = await res.json();
+// 	if (json.data) {
+// 		const price = json.data?.[0].price ?? null;
+// 		const metrics = json.data?.[0].metrics ?? null;
+// 		const holders = json.data?.[0]?.token?.metrics?.holders ?? null;
+// 		let links = json.data?.[0].token.links ?? null;
+// 		if (links) {
+// 			links = Object.values(links).filter(link => link !== '');
+// 		}
+// 		else {
+// 			links = [];
+// 		}
+// 		return {
+// 			price,
+// 			metrics,
+// 			holders,
+// 			links,
+// 		};
+// 	}
+// 	else {
+// 		return {
+// 			price: null,
+// 			metrics: null,
+// 			holders: null,
+// 			links: [],
+// 		};
+// 	}
+// };
+
+const defined = async (tokenAddress) => {
+	const [
+		price,
+		data,
+		holders,
+	] = await Promise.all([
+		getTokenPrice(tokenAddress).catch(() => null),
+		getTokenData(tokenAddress).catch(() => null),
+		null,
+	]);
+
+	return {
+		price,
+		holders,
+		links: data?.links ?? [],
+	};
 };
 
 const getLiquidityLocks = async (pairAddress) => {
@@ -274,11 +450,11 @@ router.get('/:address', async (req, res) => {
 
 	const erc20Contract = new ethers.Contract(tokenAddress, erc20Interface, provider);
 
-	let honeypotisData, dextoolsData, sourceCode, locks, swapLogs, token_name, token_symbol, token_decimals_bigint, token_total_supply_bigint, owner;
+	let honeypotisData, definedData, sourceCode, locks, swapLogs, token_name, token_symbol, token_decimals_bigint, token_total_supply_bigint, owner, firstSync, etherPrice;
 	try {
 		[
 			honeypotisData,
-			dextoolsData,
+			definedData,
 			sourceCode,
 			locks,
 			swapLogs,
@@ -287,9 +463,11 @@ router.get('/:address', async (req, res) => {
 			token_decimals_bigint,
 			token_total_supply_bigint,
 			owner,
+			firstSync,
+			etherPrice,
 		] = await Promise.all([
 			honeypotis(tokenAddress, await pairContract.getAddress()),
-			dextools(await pairContract.getAddress()),
+			defined(tokenAddress),
 			getSourceCode(tokenAddress),
 			getLiquidityLocks(await pairContract.getAddress()),
 			count_trades === 'true' ? getSwapLogs(await pairContract.getAddress(), blockNumber - 7200, blockNumber) : [],
@@ -298,6 +476,8 @@ router.get('/:address', async (req, res) => {
 			erc20Contract.decimals().catch(() => 18),
 			erc20Contract.totalSupply().catch(() => null),
 			erc20Contract.owner().catch(() => null),
+			getFirstSync(await pairContract.getAddress()).catch(() => null),
+			getEtherPrice().catch(() => null),
 		]);
 	}
 	catch (err) {
@@ -308,13 +488,13 @@ router.get('/:address', async (req, res) => {
 	const pool_address = address;
 	const token_address = tokenAddress;
 	const token_supply = Number(ethers.formatUnits(token_total_supply_bigint, token_decimals_bigint));
-	const price = dextoolsData?.price;
+	const price = definedData?.price ?? null;
 	const market_cap = token_total_supply_bigint ? Number(ethers.formatUnits(token_total_supply_bigint, token_decimals_bigint)) * price : null;
 	const pooled_eth = address0.toLowerCase() === WETH_ADDRESS.toLowerCase() ? Number(ethers.formatEther(reserves[0])) : Number(ethers.formatEther(reserves[1]));
-	const initial_liquidity = dextoolsData?.metrics?.initialLiquidity ?? 0;
-	const current_liquidity = dextoolsData?.metrics?.liquidity ?? 0;
-	const pool_growth = initial_liquidity ? Number((current_liquidity / initial_liquidity - 1).toFixed(2)) : null;
-	const token_holders = dextoolsData?.holders ?? null;
+	const pooled_eth_initial = firstSync ? address0.toLowerCase() === WETH_ADDRESS.toLowerCase() ? Number(ethers.formatEther(firstSync.reserve0)) : Number(ethers.formatEther(firstSync.reserve1)) : null;
+	const current_liquidity = etherPrice ? pooled_eth * etherPrice * 2 : null;
+	const pool_growth = pooled_eth_initial ? Number((pooled_eth / pooled_eth_initial - 1).toFixed(2)) : null;
+	const token_holders = definedData?.holders ?? null;
 	const { buys: buys_24h, sells: sells_24h } = countSwapsfromLogs(swapLogs, address0);
 	const buy_tax = honeypotisData?.simulationResult?.buyTax ?? null;
 	const sell_tax = honeypotisData?.simulationResult?.sellTax ?? null;
@@ -324,7 +504,7 @@ router.get('/:address', async (req, res) => {
 	const max_sell = honeypotisData?.simulationResult?.maxSell?.withToken ?? null;
 	const is_honeypot = honeypotisData?.honeypotResult?.isHoneypot ?? null;
 	const verified = sourceCode ? true : false;
-	const links = Array.from(new Set([...findLinksFromSourceCode(sourceCode), ...(dextoolsData?.links ?? [])]));
+	const links = Array.from(new Set([...findLinksFromSourceCode(sourceCode), ...(definedData?.links ?? [])]));
 	const token_decimals = Number(token_decimals_bigint);
 
 	let renounced = false;
@@ -341,7 +521,7 @@ router.get('/:address', async (req, res) => {
 		price,
 		market_cap,
 		pooled_eth,
-		initial_liquidity,
+		pooled_eth_initial,
 		current_liquidity,
 		pool_growth,
 		token_holders,
